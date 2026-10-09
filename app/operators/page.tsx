@@ -81,8 +81,12 @@ function OperatorsPage() {
   }
 
   useEffect(() => {
-    loadApplications();
-  }, []);
+  const timer = window.setTimeout(() => {
+    void loadApplications();
+  }, 0);
+
+  return () => window.clearTimeout(timer);
+}, []);
 
   async function approveOperator(application: OperatorApplication) {
     const confirmed = window.confirm(
@@ -107,15 +111,20 @@ function OperatorsPage() {
 
       // Create the profile expected by the Operator portal.
       batch.set(doc(db, "users", application.uid), {
-        uid: application.uid,
-        operatorId,
-        role: "operator_admin",
-        companyName: application.companyName,
-        contactName: application.contactName,
-        phone: application.phone,
-        email: application.email,
-        status: "active",
-      });
+  uid: application.uid,
+  operatorId,
+  role: "operator_admin",
+  companyName: application.companyName,
+  contactName: application.contactName,
+  phone: application.phone,
+  email: application.email,
+  status: "active",
+  accountStatus: "active",
+  verificationStatus: "verified",
+  identityVerified: false,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+});
 
       // Create the network-level operator record.
       batch.set(doc(db, "operators", operatorId), {
@@ -138,16 +147,25 @@ await batch.commit();
 console.log("APPROVAL COMMITTED SUCCESSFULLY");
 
 await loadApplications();
- } catch (error: any) {
+ } catch (error: unknown) {
   console.error("APPROVE OPERATOR ERROR:", error);
-  console.error("ERROR CODE:", error?.code);
-  console.error("ERROR MESSAGE:", error?.message);
 
-  setError(
-    `Approval failed: ${error?.code || "unknown"} — ${
-      error?.message || "Unknown Firebase error"
-    }`
-  );
+  const errorCode =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error
+      ? String(error.code)
+      : "unknown";
+
+  const errorMessage =
+    error instanceof Error
+      ? error.message
+      : "Unknown Firebase error";
+
+  console.error("ERROR CODE:", errorCode);
+  console.error("ERROR MESSAGE:", errorMessage);
+
+  setError(`Approval failed: ${errorCode} — ${errorMessage}`);
 } finally {
   setProcessingId("");
 }

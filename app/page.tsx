@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { collection, getCountFromServer } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import AdminGate from "@/components/AdminGate";
 
 const navigation = [
@@ -21,6 +23,37 @@ const navigation = [
 
 function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+const [stats, setStats] = useState({
+  operators: 0,
+  vehicles: 0,
+  trips: 0,
+  bookings: 0,
+});
+
+useEffect(() => {
+  async function loadStats() {
+    try {
+      const [operators, vehicles, trips, bookings] =
+        await Promise.all([
+          getCountFromServer(collection(db, "operators")),
+          getCountFromServer(collection(db, "vehicles")),
+          getCountFromServer(collection(db, "trips")),
+          getCountFromServer(collection(db, "bookings")),
+        ]);
+
+      setStats({
+        operators: operators.data().count,
+        vehicles: vehicles.data().count,
+        trips: trips.data().count,
+        bookings: bookings.data().count,
+      });
+    } catch (error) {
+      console.error("DASHBOARD STATS ERROR:", error);
+    }
+  }
+
+  loadStats();
+}, []);
 
   return (
     <div className="min-h-screen bg-[#F3F6FB] text-[#06152B]">
@@ -253,11 +286,11 @@ function Dashboard() {
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
 
             {[
-              ["Operators", "0", "Awaiting network growth"],
-              ["Vehicles", "0", "Active fleet"],
-              ["Trips", "0", "Scheduled journeys"],
-              ["Bookings", "0", "Passenger bookings"],
-            ].map(([title, value, subtitle]) => (
+  ["Operators", String(stats.operators), "Registered operators"],
+  ["Vehicles", String(stats.vehicles), "Registered fleet"],
+  ["Trips", String(stats.trips), "Scheduled journeys"],
+  ["Bookings", String(stats.bookings), "Passenger bookings"],
+].map(([title, value, subtitle]) => (
               <div
                 key={title}
                 className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm"
