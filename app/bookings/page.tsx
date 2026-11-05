@@ -42,40 +42,52 @@ export default function BookingsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+ const loadData = useCallback(async () => {
+  setLoading(true);
+  setError("");
+
+  try {
+    const [bookingSnapshot, operatorSnapshot] = await Promise.all([
+      getDocs(collection(db, "bookings")),
+      getDocs(collection(db, "operators")),
+    ]);
+
+    return {
+      bookings: bookingSnapshot.docs.map((item) => ({
+        id: item.id,
+        ...item.data(),
+      })) as Booking[],
+      operators: operatorSnapshot.docs.map((item) => ({
+        id: item.id,
+        ...item.data(),
+      })) as Operator[],
+    };
+  } catch (err) {
+    console.error("ADMIN BOOKINGS LOAD ERROR:", err);
+    throw err;
+  }
+}, []);
+
+const refreshData = useCallback(async () => {
+  try {
+    const data = await loadData();
+    setBookings(data.bookings);
+    setOperators(data.operators);
     setError("");
+  } catch {
+    setError("Could not load bookings. Check admin login and Firestore permissions.");
+  } finally {
+    setLoading(false);
+  }
+}, [loadData]);
 
-    try {
-      const [bookingSnapshot, operatorSnapshot] = await Promise.all([
-        getDocs(collection(db, "bookings")),
-        getDocs(collection(db, "operators")),
-      ]);
+useEffect(() => {
+  const timer = setTimeout(() => {
+    void refreshData();
+  }, 0);
 
-      setBookings(
-        bookingSnapshot.docs.map((item) => ({
-          id: item.id,
-          ...item.data(),
-        })) as Booking[]
-      );
-
-      setOperators(
-        operatorSnapshot.docs.map((item) => ({
-          id: item.id,
-          ...item.data(),
-        })) as Operator[]
-      );
-    } catch (err) {
-      console.error("ADMIN BOOKINGS LOAD ERROR:", err);
-      setError("Could not load bookings. Check admin login and Firestore permissions.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  return () => clearTimeout(timer);
+}, [refreshData]);
 
   const operatorNames = useMemo(
     () =>
@@ -158,7 +170,7 @@ export default function BookingsPage() {
             </div>
 
             <button
-              onClick={() => void loadData()}
+              onClick={() => void refreshData()}
               disabled={loading}
               className="rounded-xl bg-[#06152B] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
             >
